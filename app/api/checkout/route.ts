@@ -26,20 +26,20 @@ export async function POST(req: NextRequest) {
 
   const { itens, cliente }: { itens: ItemInput[]; cliente: ClienteInput } = body;
   const idsRequeridos = itens.map((i: ItemInput) => i.id);
-
   const expiraEm = new Date(Date.now() + RESERVA_MINUTOS * 60 * 1000);
 
-  // Derivar base URL da requisição
   const proto = req.headers.get("x-forwarded-proto") ?? "http";
   const host = req.headers.get("host") ?? "localhost:3000";
   const baseUrl = `${proto}://${host}`;
 
+  let pedidoId: string | null = null;
+
   try {
-    // ── Transação atômica: verificar disponibilidade e reservar ────────────
+    // ── 1. Reserva atômica ─────────────────────────────────────────────────
     const pedido = await prisma.$transaction(async (tx) => {
       for (const id of idsRequeridos) {
         const peca = await tx.peca.findFirst({ where: { id, status: "DISPONIVEL" } });
-        if (!peca) throw new Error(`Peça ${id} não está mais disponível`);
+        if (!peca) throw new Error(`Peça "${id}" não está mais disponível`);
 
         await tx.peca.update({
           where: { id },
@@ -68,43 +68,85 @@ export async function POST(req: NextRequest) {
       });
     });
 
-    // ── Criar preferência no Mercado Pago ──────────────────────────────────
-    const pref = await preference.create({
-      body: {
-        external_reference: pedido.id,
-        items: itens.map((i: ItemInput) => ({
-          id: i.id,
-          title: i.titulo,
-          quantity: 1,
-          unit_price: i.precoCentavos / 100,
-          currency_id: "BRL",
-        })),
-        payer: {
-          name: cliente.nome.split(" ")[0],
-          surname: cliente.nome.split(" ").slice(1).join(" "),
-          email: cliente.email,
-        },
-        back_urls: {
-          success: `${baseUrl}/checkout/sucesso`,
-          failure: `${baseUrl}/checkout/erro`,
-          pending: `${baseUrl}/checkout/sucesso`,
-        },
-        auto_return: "approved",
-        notification_url: `${baseUrl}/api/webhooks/mercadopago`,
-        statement_descriptor: "SUSPIRO BRECHO",
-        expires: true,
-        expiration_date_to: expiraEm.toISOString(),
-      },
-    });
+    pedidoId = pedido.id;
 
-    // Salvar preference ID no pedido
+    // ── 2. Criar preferência no Mercado Pago ──────────────────────────────
+    let pref;
+    try {
+      pref = await preference.create({
+        body: {
+          external_reference: pedido.id,
+          items: itens.map((i: ItemInput) => ({
+            id: i.id,
+            title: i.titulo,
+            quantity: 1,
+            unit_price: i.precoCentavos / 100,
+            currency_id: "BRL",
+          })),
+          payer: {
+            name: cliente.nome.split(" ")[0],
+            surname: cliente.nome.split(" ").slice(1).join(" ") || " ",
+            email: cliente.email,
+          },
+          back_urls: {
+            success: `${baseUrl}/checkout/sucesso`,
+            failure: `${baseUrl}/checkout/erro`,
+            pending: `${baseUrl}/checkout/sucesso`,
+          },
+          // auto_return só funciona com URLs públicas (não localhost)
+          ...(baseUrl.startsWith("http://localhost") ? {} : { auto_return: "approved" as const }),
+          notification_url: `${baseUrl}/api/webhooks/mercadopago`,
+          statement_descriptor: "SUSPIRO BRECHO",
+          expires: true,
+          expiration_date_to: expiraEm.toISOString(),
+        },
+      });
+    } catch (mpErr) {
+      // ── Rollback: liberar reserva e cancelar pedido ──────────────────────
+      console.error("[checkout] Erro no Mercado Pago:", mpErr);
+      await prisma.$transaction([
+        ...idsRequeridos.map((id) =>
+          prisma.peca.update({
+            where: { id },
+            data: { status: "DISPONIVEL", reservadoAte: null },
+          })
+        ),
+        prisma.pedido.update({
+          where: { id: pedidoId! },
+          data: { status: "CANCELADO" },
+        }),
+      ]);
+
+      const mpMessage =
+        mpErr instanceof Error ? mpErr.message : "Erro ao conectar com o Mercado Pago";
+      return Response.json({ error: `Pagamento indisponível no momento. Detalhe: ${mpMessage}` }, { status: 502 });
+    }
+
+    // ── 3. Salvar preference ID ────────────────────────────────────────────
     await prisma.pedido.update({
       where: { id: pedido.id },
       data: { mpPreferenceId: pref.id },
     });
 
     return Response.json({ initPoint: pref.init_point });
+
   } catch (err) {
+    console.error("[checkout] Erro geral:", err);
+    // Se a reserva foi criada mas algo mais falhou, tenta liberar
+    if (pedidoId) {
+      await prisma.$transaction([
+        ...idsRequeridos.map((id) =>
+          prisma.peca.update({
+            where: { id },
+            data: { status: "DISPONIVEL", reservadoAte: null },
+          })
+        ),
+        prisma.pedido.update({
+          where: { id: pedidoId },
+          data: { status: "CANCELADO" },
+        }),
+      ]).catch(() => {});
+    }
     const message = err instanceof Error ? err.message : "Erro interno";
     return Response.json({ error: message }, { status: 422 });
   }
