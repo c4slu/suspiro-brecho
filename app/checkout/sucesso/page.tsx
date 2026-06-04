@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import Image from "next/image";
 import { formatCentavos } from "@/lib/format";
+import { enviarEmailConfirmacao } from "@/lib/email";
 
 type SearchParams = Promise<{
   collection_status?: string;
@@ -61,6 +62,39 @@ export default async function SucessoPage({ searchParams }: { searchParams: Sear
 
   const pedido = pedidoId ? await getPedido(pedidoId) : null;
   const temEndereco = pedido?.enderecoLinha && pedido?.enderecoCidade;
+
+  // Fallback: se MP aprovou mas webhook ainda não chegou (pedido ainda PENDENTE),
+  // atualiza o pedido e dispara o e-mail. Peças ficam para o webhook corrigir;
+  // se webhook nunca vier, admin usa "Confirmar pagamento" no /admin/vendas.
+  const pedidoStatus = (pedido as unknown as { status: string } | null)?.status;
+  if (!isPending && pedido && pedidoStatus === "PENDENTE") {
+    try {
+      await prisma.pedido.update({
+        where: { id: pedido.id },
+        data: {
+          status: "PAGO",
+          mpPaymentId: sp.payment_id ? `mp-${sp.payment_id}` : `redirect-${pedido.id}`,
+        },
+      });
+      enviarEmailConfirmacao({
+        id: pedido.id,
+        clienteNome: pedido.clienteNome,
+        clienteEmail: pedido.clienteEmail,
+        totalCentavos: pedido.totalCentavos,
+        enderecoLinha: pedido.enderecoLinha,
+        enderecoCidade: pedido.enderecoCidade,
+        enderecoUf: pedido.enderecoUf,
+        enderecoCep: pedido.enderecoCep,
+        itens: pedido.itens.map((i) => ({
+          titulo: i.peca.titulo,
+          precoCentavos: i.precoCentavos,
+          tamanho: i.peca.tamanho,
+        })),
+      }).catch(() => {});
+    } catch {
+      // mpPaymentId com unique constraint: webhook chegou primeiro — sem ação
+    }
+  }
 
   return (
     <main className="min-h-screen py-12 px-4" style={{ background: "#F4ECD8" }}>
