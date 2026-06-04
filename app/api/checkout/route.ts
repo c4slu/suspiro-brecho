@@ -81,10 +81,12 @@ export async function POST(req: NextRequest) {
           external_reference: pedido.id,
           items: itens.map((i: ItemInput) => ({
             id: i.id,
-            title: i.titulo,
+            title: `Suspiro Brechó — ${i.titulo}`,
+            description: "Peça única de brechó curado",
             quantity: 1,
             unit_price: i.precoCentavos / 100,
             currency_id: "BRL",
+            category_id: "fashion",
           })),
           payer: {
             name: cliente.nome.split(" ")[0],
@@ -131,7 +133,7 @@ export async function POST(req: NextRequest) {
       data: { mpPreferenceId: pref.id },
     });
 
-    return Response.json({ initPoint: pref.init_point });
+    return Response.json({ initPoint: pref.init_point, pedidoId: pedido.id });
 
   } catch (err) {
     console.error("[checkout] Erro geral:", err);

@@ -95,11 +95,13 @@ export default function CheckoutPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Erro ao processar checkout");
 
-      // 1. Mostrar tela de loading ANTES de limpar o carrinho
+      // 1. Salvar pedidoId no localStorage como fallback caso redirect falhe
+      if (data.pedidoId) localStorage.setItem("suspiro-last-order", data.pedidoId);
+      // 2. Mostrar tela de loading ANTES de limpar o carrinho
       setRedirecting(true);
-      // 2. Limpar carrinho
+      // 3. Limpar carrinho
       clear();
-      // 3. Redirecionar (um tick depois para garantir render do loading)
+      // 4. Redirecionar (um tick depois para garantir render do loading)
       setTimeout(() => { window.location.href = data.initPoint; }, 100);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro inesperado");
