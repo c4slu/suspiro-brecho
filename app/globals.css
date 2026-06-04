@@ -1,26 +1,272 @@
 @import "tailwindcss";
 
+/* ─── Paleta & Tema ──────────────────────────────────────────────────────── */
+@theme {
+  --color-bege:          #F4ECD8;
+  --color-bege-escuro:   #E5D5B5;
+  --color-bege-medio:    #EDE0C8;
+  --color-rosa:          #D4888A;
+  --color-rosa-claro:    #F2C4C5;
+  --color-rosa-palido:   #FBF3F3;
+  --color-verde:         #7A9E7E;
+  --color-verde-escuro:  #4A6B50;
+  --color-verde-claro:   #B8D4B8;
+  --color-marrom:        #4A3728;
+  --color-marrom-claro:  #7A5C48;
+  --color-ouro:          #C4973F;
+
+  --font-display: var(--font-cormorant);
+  --font-body:    var(--font-jost);
+}
+
+/* ─── Base ───────────────────────────────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #F4ECD8;
+  --foreground: #4A3728;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body), "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
+
+/* Grain texture overlay */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+  opacity: 0.45;
+}
+
+/* ─── Tipografia de exibição ─────────────────────────────────────────────── */
+.font-display {
+  font-family: var(--font-cormorant), Georgia, serif;
+}
+
+/* ─── Animações ──────────────────────────────────────────────────────────── */
+@keyframes sparkle {
+  0%   { opacity: 0; transform: scale(0) rotate(0deg); }
+  40%  { opacity: 1; transform: scale(1) rotate(90deg); }
+  70%  { opacity: 0.8; transform: scale(0.9) rotate(180deg); }
+  100% { opacity: 0; transform: scale(0) rotate(360deg); }
+}
+
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0px) rotate(-2deg); }
+  50%       { transform: translateY(-12px) rotate(2deg); }
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-6px); }
+}
+
+@keyframes disco-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(212, 136, 138, 0.4)); }
+  50%       { filter: drop-shadow(0 0 24px rgba(212, 136, 138, 0.8)); }
+}
+
+@keyframes shimmer-text {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+@keyframes slide-out-right {
+  from { transform: translateX(0); }
+  to   { transform: translateX(100%); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in-slow {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ─── Classes utilitárias ────────────────────────────────────────────────── */
+.animate-sparkle       { animation: sparkle var(--dur, 2.4s) ease-in-out var(--delay, 0s) infinite; }
+.animate-float-gentle  { animation: float-gentle 4s ease-in-out infinite; }
+.animate-float-slow    { animation: float-slow 6s ease-in-out infinite; }
+.animate-disco-spin    { animation: disco-spin 20s linear infinite; }
+.animate-pulse-glow    { animation: pulse-glow 3s ease-in-out infinite; }
+.animate-fade-in       { animation: fade-in 0.6s ease forwards; }
+.animate-scale-in      { animation: scale-in 0.4s ease forwards; }
+
+/* Stagger helpers */
+.delay-100  { animation-delay: 0.1s; }
+.delay-200  { animation-delay: 0.2s; }
+.delay-300  { animation-delay: 0.3s; }
+.delay-500  { animation-delay: 0.5s; }
+.delay-700  { animation-delay: 0.7s; }
+
+/* ─── Cart drawer ────────────────────────────────────────────────────────── */
+.cart-drawer-enter { animation: slide-in-right 0.35s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
+.cart-drawer-exit  { animation: slide-out-right 0.3s ease-in forwards; }
+
+/* ─── Componentes ─────────────────────────────────────────────────────────── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 2rem;
+  background: #D4888A;
+  color: #fff;
+  font-family: var(--font-jost), sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 9999px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+}
+.btn-primary:hover {
+  background: #C97B7B;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(212, 136, 138, 0.35);
+}
+.btn-primary:active { transform: translateY(0); }
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 2rem;
+  background: transparent;
+  color: #4A3728;
+  font-family: var(--font-jost), sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 9999px;
+  border: 1.5px solid #4A3728;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-secondary:hover {
+  background: #4A3728;
+  color: #F4ECD8;
+}
+
+.btn-verde {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 2rem;
+  background: #7A9E7E;
+  color: #fff;
+  font-family: var(--font-jost), sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 9999px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+}
+.btn-verde:hover {
+  background: #4A6B50;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(122, 158, 126, 0.35);
+}
+
+/* Product card */
+.product-card {
+  background: #fff9f2;
+  border: 1px solid #E5D5B5;
+  border-radius: 1.25rem;
+  overflow: hidden;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  cursor: pointer;
+}
+.product-card:hover {
+  transform: translateY(-6px) rotate(0.5deg);
+  box-shadow: 0 20px 48px rgba(74, 55, 40, 0.12), 0 0 0 1px rgba(212, 136, 138, 0.2);
+}
+
+/* Tag de preço */
+.price-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: #D4888A;
+  color: #fff;
+  font-weight: 700;
+  padding: 0.2rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.95rem;
+}
+
+/* Input base */
+.input-base {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: #fff;
+  border: 1.5px solid #E5D5B5;
+  border-radius: 0.75rem;
+  font-family: var(--font-jost), sans-serif;
+  font-size: 0.95rem;
+  color: #4A3728;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.input-base:focus {
+  border-color: #D4888A;
+  box-shadow: 0 0 0 3px rgba(212, 136, 138, 0.15);
+}
+.input-base::placeholder {
+  color: #B8A898;
+}
+
+/* Scrollbar customizada */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #F4ECD8; }
+::-webkit-scrollbar-thumb { background: #E5D5B5; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #D4888A; }
+
+/* Scrollbar oculta para filtros horizontais */
+.scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* Touch safe — sem delay de 300ms */
+* { touch-action: manipulation; }
+
+/* Imagens não selecionáveis */
+img { user-select: none; -webkit-user-drag: none; }
