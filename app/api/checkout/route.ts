@@ -2,7 +2,9 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import MercadoPago, { Preference } from "mercadopago";
 
-const mp = new MercadoPago({ accessToken: process.env.MP_ACCESS_TOKEN! });
+// Em dev pode usar MP_ACCESS_TOKEN_TEST (token TEST-...) para sandbox sem dinheiro real
+const token = process.env.MP_ACCESS_TOKEN_TEST ?? process.env.MP_ACCESS_TOKEN!;
+const mp = new MercadoPago({ accessToken: token });
 const preference = new Preference(mp);
 
 const RESERVA_MINUTOS = 15;
@@ -28,9 +30,10 @@ export async function POST(req: NextRequest) {
   const idsRequeridos = itens.map((i: ItemInput) => i.id);
   const expiraEm = new Date(Date.now() + RESERVA_MINUTOS * 60 * 1000);
 
-  const proto = req.headers.get("x-forwarded-proto") ?? "http";
-  const host = req.headers.get("host") ?? "localhost:3000";
-  const baseUrl = `${proto}://${host}`;
+  // APP_URL permite testar com ngrok em dev (ex: https://abc.ngrok.io)
+  const baseUrl =
+    process.env.APP_URL ??
+    `${req.headers.get("x-forwarded-proto") ?? "http"}://${req.headers.get("host") ?? "localhost:3000"}`;
 
   let pedidoId: string | null = null;
 
@@ -91,7 +94,7 @@ export async function POST(req: NextRequest) {
           back_urls: {
             success: `${baseUrl}/checkout/sucesso`,
             failure: `${baseUrl}/checkout/erro`,
-            pending: `${baseUrl}/checkout/sucesso`,
+            pending: `${baseUrl}/checkout/sucesso`, // pending vai pra sucesso com status=pending
           },
           // auto_return só funciona com URLs públicas (não localhost)
           ...(baseUrl.startsWith("http://localhost") ? {} : { auto_return: "approved" as const }),

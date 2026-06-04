@@ -19,8 +19,7 @@ export function ProductCard({ peca, index = 0 }: Props) {
   const rotations = ["rotate-[-1deg]", "rotate-[0.5deg]", "rotate-[1deg]", "rotate-[-0.5deg]"];
   const rotation = rotations[index % rotations.length];
 
-  const handleAdd = (e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleAdd = () => {
     if (inCart) return;
     add(peca);
     setAdded(true);
@@ -28,57 +27,62 @@ export function ProductCard({ peca, index = 0 }: Props) {
   };
 
   return (
-    <Link href={`/peca/${peca.slug}`} className={`product-card block animate-fade-in ${rotation}`} style={{ animationDelay: `${index * 0.07}s` }}>
-      {/* Imagem */}
-      <div className="relative aspect-[3/4] overflow-hidden" style={{ background: "#EDE0C8" }}>
+    // Card wrapper é div, não Link — evita conflito de clique button-dentro-de-anchor
+    <div
+      className={`product-card animate-fade-in ${rotation}`}
+      style={{ animationDelay: `${index * 0.07}s` }}
+    >
+      {/* Imagem — link para a página da peça */}
+      <Link href={`/peca/${peca.slug}`} className="block relative aspect-[3/4] overflow-hidden"
+        style={{ background: "#EDE0C8" }}>
         {peca.fotoUrl ? (
           <Image
             src={peca.fotoUrl}
             alt={peca.titulo}
             fill
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            className="object-cover transition-transform duration-500 hover:scale-105"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-5xl">👗</div>
         )}
 
-        {/* Badge tamanho */}
         {peca.tamanho && (
           <span
             className="absolute top-3 left-3 text-xs font-bold px-2.5 py-1 rounded-full"
-            style={{ background: "rgba(244, 236, 216, 0.92)", color: "#4A3728", backdropFilter: "blur(4px)" }}
+            style={{ background: "rgba(244,236,216,0.92)", color: "#4A3728", backdropFilter: "blur(4px)" }}
           >
             {peca.tamanho}
           </span>
         )}
-
-        {/* Disco sparkle hover overlay */}
-        <div
-          className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-          style={{ background: "radial-gradient(circle at 50% 50%, rgba(212,136,138,0.12), transparent 70%)" }}
-        />
-      </div>
+      </Link>
 
       {/* Info */}
-      <div className="p-4">
-        <h3 className="font-semibold text-sm leading-snug line-clamp-2 mb-2" style={{ color: "#4A3728" }}>
-          {peca.titulo}
-        </h3>
+      <div className="p-3 sm:p-4">
+        {/* Título — link para a página */}
+        <Link href={`/peca/${peca.slug}`} className="block mb-2">
+          <h3 className="font-semibold text-sm leading-snug line-clamp-2" style={{ color: "#4A3728" }}>
+            {peca.titulo}
+          </h3>
+        </Link>
 
         <div className="flex items-center justify-between gap-2">
           <span className="price-tag text-sm">{formatCentavos(peca.precoCentavos)}</span>
 
+          {/* Botão fora do Link — clique isolado sem conflito */}
           <button
+            type="button"
             onClick={handleAdd}
             disabled={inCart}
-            className="shrink-0 w-9 h-9 flex items-center justify-center rounded-full transition-all"
+            className="shrink-0 w-10 h-10 flex items-center justify-center rounded-full transition-all active:scale-95"
             style={{
               background: inCart ? "#B8D4B8" : added ? "#7A9E7E" : "#D4888A",
               color: "#fff",
               transform: added ? "scale(1.15)" : "scale(1)",
+              minWidth: 40,
+              minHeight: 40,
             }}
-            aria-label={inCart ? "No carrinho" : "Adicionar ao carrinho"}
+            aria-label={inCart ? "Na sacola" : "Adicionar à sacola"}
           >
             {inCart ? (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -92,6 +96,6 @@ export function ProductCard({ peca, index = 0 }: Props) {
           </button>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }
