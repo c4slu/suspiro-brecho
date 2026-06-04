@@ -190,6 +190,104 @@ export async function marcarDisponivelAction(id: string) {
   revalidatePath("/produtos");
 }
 
+// ── Confirmar pagamento manual (quando webhook do MP não chegou) ──────────────
+
+export async function confirmarPagamentoAction(pedidoId: string) {
+  await assertAdmin();
+  const { enviarEmailConfirmacao } = await import("@/lib/email");
+
+  const pedido = await prisma.pedido.findUnique({
+    where: { id: pedidoId },
+    include: {
+      itens: {
+        include: { peca: { select: { titulo: true, tamanho: true } } },
+      },
+    },
+  });
+
+  if (!pedido || pedido.status !== "PENDENTE") return;
+
+  await prisma.$transaction([
+    ...(pedido.itens as { pecaId: string }[]).map((item) =>
+      prisma.peca.update({
+        where: { id: item.pecaId },
+        data: { status: "VENDIDO", reservadoAte: null },
+      })
+    ),
+    prisma.pedido.update({
+      where: { id: pedidoId },
+      data: { status: "PAGO", mpPaymentId: `manual-${pedidoId}` },
+    }),
+  ]);
+
+  // Enviar e-mail (best-effort)
+  enviarEmailConfirmacao({
+    id: pedido.id,
+    clienteNome: pedido.clienteNome,
+    clienteEmail: pedido.clienteEmail,
+    totalCentavos: pedido.totalCentavos,
+    enderecoLinha: pedido.enderecoLinha,
+    enderecoCidade: pedido.enderecoCidade,
+    enderecoUf: pedido.enderecoUf,
+    enderecoCep: pedido.enderecoCep,
+    itens: (pedido.itens as { precoCentavos: number; peca: { titulo: string; tamanho: string | null } }[]).map((i) => ({
+      titulo: i.peca.titulo,
+      precoCentavos: i.precoCentavos,
+      tamanho: i.peca.tamanho,
+    })),
+  }).catch(console.error);
+
+  revalidatePath("/admin/vendas");
+  revalidatePath("/produtos");
+}
+
+// ── Marcar entregue ───────────────────────────────────────────────────────────
+
+export async function marcarEntregueAction(pedidoId: string) {
+  await assertAdmin();
+  await prisma.pedido.update({
+    where: { id: pedidoId },
+    data: { status: "ENTREGUE" },
+  });
+  revalidatePath("/admin/vendas");
+}
+
+// ── Reenviar e-mail de confirmação ────────────────────────────────────────────
+
+export async function reenviarEmailAction(pedidoId: string) {
+  await assertAdmin();
+  const { enviarEmailConfirmacao } = await import("@/lib/email");
+
+  const pedido = await prisma.pedido.findUnique({
+    where: { id: pedidoId },
+    include: {
+      itens: {
+        include: { peca: { select: { titulo: true, tamanho: true } } },
+      },
+    },
+  });
+  if (!pedido) return { error: "Pedido não encontrado" };
+
+  const result = await enviarEmailConfirmacao({
+    id: pedido.id,
+    clienteNome: pedido.clienteNome,
+    clienteEmail: pedido.clienteEmail,
+    totalCentavos: pedido.totalCentavos,
+    enderecoLinha: pedido.enderecoLinha,
+    enderecoCidade: pedido.enderecoCidade,
+    enderecoUf: pedido.enderecoUf,
+    enderecoCep: pedido.enderecoCep,
+    itens: (pedido.itens as { precoCentavos: number; peca: { titulo: string; tamanho: string | null } }[]).map((i) => ({
+      titulo: i.peca.titulo,
+      precoCentavos: i.precoCentavos,
+      tamanho: i.peca.tamanho,
+    })),
+  });
+
+  if (!result.ok) return { error: result.reason ?? "Falha ao enviar" };
+  return { ok: true };
+}
+
 // ── Excluir peça ──────────────────────────────────────────────────────────────
 
 export async function excluirPecaAction(id: string) {

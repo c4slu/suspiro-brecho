@@ -24,8 +24,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={`${cormorant.variable} ${jost.variable} h-full`}>
-      <body className="min-h-full flex flex-col antialiased" style={{ fontFamily: "var(--font-jost)" }}>
+    <html lang="pt-BR" className={`${cormorant.variable} ${jost.variable} h-full`} suppressHydrationWarning>
+      <body className="min-h-full flex flex-col antialiased" style={{ fontFamily: "var(--font-jost)" }} suppressHydrationWarning>
         <CartProvider>
           <Sparkles />
           {children}

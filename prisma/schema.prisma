@@ -23,6 +23,7 @@ enum StatusPeca {
 enum StatusPedido {
   PENDENTE  // criado, aguardando pagamento
   PAGO      // webhook do Mercado Pago confirmou
+  ENTREGUE  // produto fisicamente entregue ao cliente
   EXPIRADO  // reserva venceu sem pagamento -> peças voltam a DISPONIVEL
   CANCELADO // cancelado manualmente
 }

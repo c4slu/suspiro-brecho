@@ -34,19 +34,23 @@ type PedidoDetalhe = {
 };
 
 async function getPedido(id: string): Promise<PedidoDetalhe | null> {
-  const raw = await prisma.pedido.findUnique({
-    where: { id },
-    include: {
-      itens: {
-        include: {
-          peca: {
-            include: { fotos: { take: 1, orderBy: { ordem: "asc" } } },
+  try {
+    const raw = await prisma.pedido.findUnique({
+      where: { id },
+      include: {
+        itens: {
+          include: {
+            peca: {
+              include: { fotos: { take: 1, orderBy: { ordem: "asc" } } },
+            },
           },
         },
       },
-    },
-  });
-  return raw as unknown as PedidoDetalhe | null;
+    });
+    return raw as unknown as PedidoDetalhe | null;
+  } catch {
+    return null;
+  }
 }
 
 export default async function SucessoPage({ searchParams }: { searchParams: SearchParams }) {
@@ -56,36 +60,28 @@ export default async function SucessoPage({ searchParams }: { searchParams: Sear
   const pedidoId = sp.external_reference;
 
   const pedido = pedidoId ? await getPedido(pedidoId) : null;
-
   const temEndereco = pedido?.enderecoLinha && pedido?.enderecoCidade;
 
   return (
-    <main
-      className="min-h-screen py-12 px-4"
-      style={{ background: "#F4ECD8" }}
-    >
+    <main className="min-h-screen py-12 px-4" style={{ background: "#F4ECD8" }}>
       <div className="max-w-lg mx-auto space-y-5">
 
         {/* Card principal */}
-        <div
-          className="p-7 sm:p-10 rounded-3xl text-center animate-scale-in"
-          style={{ background: "#fff9f2", border: "1px solid #E5D5B5" }}
-        >
+        <div className="p-7 sm:p-10 rounded-3xl text-center animate-scale-in"
+          style={{ background: "#fff9f2", border: "1px solid #E5D5B5" }}>
           <div className="text-5xl sm:text-6xl mb-5 inline-block animate-float-gentle">
             {isPending ? "⏳" : "🪩"}
           </div>
 
-          <h1
-            className="font-display italic mb-2"
-            style={{ fontSize: "clamp(1.8rem, 7vw, 2.6rem)", color: "#4A3728" }}
-          >
+          <h1 className="font-display italic mb-2"
+            style={{ fontSize: "clamp(1.8rem, 7vw, 2.6rem)", color: "#4A3728" }}>
             {isPending ? "Pagamento pendente" : "Pedido confirmado!"}
           </h1>
 
           <p className="text-sm leading-relaxed" style={{ color: "#7A5C48" }}>
             {isPending
               ? "Seu pedido foi registrado e aguarda confirmação. Para boleto ou Pix, pode levar alguns minutos."
-              : "Recebemos seu pedido e o pagamento foi aprovado."}
+              : "Recebemos seu pedido e o pagamento foi aprovado. Em breve entraremos em contato!"}
           </p>
 
           {pedidoId && (
@@ -98,38 +94,24 @@ export default async function SucessoPage({ searchParams }: { searchParams: Sear
 
         {/* Itens comprados */}
         {pedido && pedido.itens.length > 0 && (
-          <div
-            className="rounded-3xl overflow-hidden"
-            style={{ background: "#fff9f2", border: "1px solid #E5D5B5" }}
-          >
-            <div className="px-6 pt-5 pb-3">
-              <h2 className="font-display italic text-xl" style={{ color: "#4A3728" }}>
-                O que você levou
-              </h2>
-            </div>
+          <div className="rounded-3xl overflow-hidden"
+            style={{ background: "#fff9f2", border: "1px solid #E5D5B5" }}>
+            <p className="font-display italic text-xl px-6 pt-5 pb-3" style={{ color: "#4A3728" }}>
+              O que você levou
+            </p>
 
             <div className="divide-y" style={{ borderColor: "#E5D5B5" }}>
               {pedido.itens.map((item) => (
                 <div key={item.id} className="flex gap-4 px-6 py-4 items-center">
-                  {/* Foto */}
-                  <div
-                    className="relative w-16 h-20 rounded-xl overflow-hidden shrink-0"
-                    style={{ background: "#EDE0C8" }}
-                  >
+                  <div className="relative shrink-0 rounded-xl overflow-hidden"
+                    style={{ width: 56, height: 72, background: "#EDE0C8" }}>
                     {item.peca.fotos[0]?.url ? (
-                      <Image
-                        src={item.peca.fotos[0].url}
-                        alt={item.peca.titulo}
-                        fill
-                        className="object-cover"
-                        sizes="64px"
-                      />
+                      <Image src={item.peca.fotos[0].url} alt={item.peca.titulo}
+                        fill className="object-cover" sizes="56px" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-2xl">👗</div>
+                      <div className="w-full h-full flex items-center justify-center text-xl">👗</div>
                     )}
                   </div>
-
-                  {/* Info */}
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm leading-snug" style={{ color: "#4A3728" }}>
                       {item.peca.titulo}
@@ -142,13 +124,10 @@ export default async function SucessoPage({ searchParams }: { searchParams: Sear
                         </span>
                       )}
                       {item.peca.marca && (
-                        <span className="text-xs" style={{ color: "#B8A898" }}>
-                          {item.peca.marca}
-                        </span>
+                        <span className="text-xs" style={{ color: "#B8A898" }}>{item.peca.marca}</span>
                       )}
                     </div>
                   </div>
-
                   <span className="shrink-0 font-semibold text-sm" style={{ color: "#4A3728" }}>
                     {formatCentavos(item.precoCentavos)}
                   </span>
@@ -156,10 +135,9 @@ export default async function SucessoPage({ searchParams }: { searchParams: Sear
               ))}
             </div>
 
-            {/* Total */}
             <div className="flex justify-between items-center px-6 py-4 border-t"
               style={{ borderColor: "#E5D5B5" }}>
-              <span className="font-semibold text-sm" style={{ color: "#7A5C48" }}>Total pago</span>
+              <span className="text-sm font-semibold" style={{ color: "#7A5C48" }}>Total pago</span>
               <span className="font-display italic text-xl" style={{ color: "#4A3728" }}>
                 {formatCentavos(pedido.totalCentavos)}
               </span>
@@ -167,58 +145,56 @@ export default async function SucessoPage({ searchParams }: { searchParams: Sear
           </div>
         )}
 
-        {/* Endereço de entrega */}
+        {/* Endereço */}
         {pedido && temEndereco && (
-          <div
-            className="p-6 rounded-3xl"
-            style={{ background: "#fff9f2", border: "1px solid #E5D5B5" }}
-          >
-            <h2 className="font-display italic text-xl mb-4" style={{ color: "#4A3728" }}>
+          <div className="p-6 rounded-3xl" style={{ background: "#fff9f2", border: "1px solid #E5D5B5" }}>
+            <p className="font-display italic text-xl mb-3" style={{ color: "#4A3728" }}>
               Endereço de entrega
-            </h2>
+            </p>
             <div className="space-y-1 text-sm" style={{ color: "#7A5C48" }}>
               <p className="font-semibold" style={{ color: "#4A3728" }}>{pedido.clienteNome}</p>
               <p>{pedido.enderecoLinha}</p>
               <p>
-                {pedido.enderecoCidade}{pedido.enderecoUf ? ` — ${pedido.enderecoUf}` : ""}
+                {pedido.enderecoCidade}
+                {pedido.enderecoUf ? ` — ${pedido.enderecoUf}` : ""}
                 {pedido.enderecoCep ? ` · CEP ${pedido.enderecoCep}` : ""}
               </p>
-              {pedido.clienteTelefone && (
-                <p className="mt-2 text-xs" style={{ color: "#B8A898" }}>
-                  {pedido.clienteTelefone}
-                </p>
-              )}
             </div>
           </div>
         )}
 
         {/* Próximos passos */}
-        <div
-          className="p-6 rounded-3xl space-y-3"
-          style={{ background: isPending ? "#FBF6EE" : "#EDF5EE", border: `1px solid ${isPending ? "#E5D5B5" : "#B8D4B8"}` }}
-        >
-          <h2 className="font-display italic text-lg" style={{ color: "#4A3728" }}>
+        <div className="p-6 rounded-3xl space-y-3"
+          style={{
+            background: isPending ? "#FBF6EE" : "#EDF5EE",
+            border: `1px solid ${isPending ? "#E5D5B5" : "#B8D4B8"}`,
+          }}>
+          <p className="font-display italic text-lg" style={{ color: "#4A3728" }}>
             O que acontece agora?
-          </h2>
+          </p>
           <ul className="space-y-2 text-sm" style={{ color: "#7A5C48" }}>
             {isPending ? (
               <>
-                <li className="flex gap-2"><span>📩</span><span>Você receberá um e-mail de confirmação assim que o pagamento for processado.</span></li>
+                <li className="flex gap-2"><span>📩</span><span>Você receberá um e-mail assim que o pagamento confirmar.</span></li>
                 <li className="flex gap-2"><span>⏱</span><span>Boleto pode levar até 3 dias úteis. Pix confirma em minutos.</span></li>
-                <li className="flex gap-2"><span>📦</span><span>Após confirmar, entraremos em contato para combinar o envio.</span></li>
+                <li className="flex gap-2"><span>📦</span><span>Após confirmar, entraremos em contato para o envio.</span></li>
               </>
             ) : (
               <>
-                <li className="flex gap-2"><span>📩</span><span>Você receberá um e-mail de confirmação no endereço <strong>{pedido?.clienteEmail}</strong>.</span></li>
-                <li className="flex gap-2"><span>📱</span><span>Entraremos em contato em breve para confirmar os detalhes do envio.</span></li>
-                <li className="flex gap-2"><span>📦</span><span>Sua peça será embalada com cuidado e enviada para o endereço informado.</span></li>
-                <li className="flex gap-2"><span>♻️</span><span>Obrigada por escolher moda circular. Você fez a diferença!</span></li>
+                {pedido?.clienteEmail && (
+                  <li className="flex gap-2">
+                    <span>📩</span>
+                    <span>Um e-mail de confirmação será enviado para <strong>{pedido.clienteEmail}</strong>.</span>
+                  </li>
+                )}
+                <li className="flex gap-2"><span>📱</span><span>Entraremos em contato para confirmar os detalhes do envio.</span></li>
+                <li className="flex gap-2"><span>📦</span><span>Sua peça será embalada com cuidado e enviada para você.</span></li>
+                <li className="flex gap-2"><span>♻️</span><span>Obrigada por escolher moda circular!</span></li>
               </>
             )}
           </ul>
         </div>
 
-        {/* CTA */}
         <div className="text-center pt-2">
           <Link href="/produtos" className="btn-primary">
             Continuar explorando ✦

@@ -26,6 +26,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           <NavLink href="/admin" icon="🏠">Início</NavLink>
+          <NavLink href="/admin/vendas" icon="💰">Vendas</NavLink>
           <NavLink href="/admin/pecas/nova" icon="➕">Nova peça</NavLink>
           <div className="pt-3 border-t mt-3" style={{ borderColor: "#E5D5B5" }}>
             <NavLink href="/" icon="🛍" external>Ver a loja</NavLink>
