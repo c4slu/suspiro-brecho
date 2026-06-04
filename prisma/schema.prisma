@@ -4,12 +4,12 @@
 // pra ninguém mais comprar. Pagamento via Mercado Pago (Checkout Pro) + webhook.
 
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ---------- Enums ----------
