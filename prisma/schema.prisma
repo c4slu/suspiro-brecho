@@ -1,0 +1,129 @@
+// Brechó — schema Prisma
+// Conceito central: cada PEÇA é única (estoque 1). Um PEDIDO pode ter VÁRIAS peças
+// (carrinho). Enquanto o pagamento não confirma, as peças do pedido ficam RESERVADAS
+// pra ninguém mais comprar. Pagamento via Mercado Pago (Checkout Pro) + webhook.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+
+enum StatusPeca {
+  DISPONIVEL // à venda, aparece no catálogo
+  RESERVADO  // dentro de um checkout em andamento (ver reservadoAte)
+  VENDIDO    // pagamento confirmado OU venda manual; some do catálogo
+}
+
+enum StatusPedido {
+  PENDENTE  // criado, aguardando pagamento
+  PAGO      // webhook do Mercado Pago confirmou
+  EXPIRADO  // reserva venceu sem pagamento -> peças voltam a DISPONIVEL
+  CANCELADO // cancelado manualmente
+}
+
+enum EstadoConservacao {
+  NOVO_COM_ETIQUETA
+  SEMINOVO
+  USADO
+}
+
+// ---------- Modelos ----------
+
+model Categoria {
+  id       String   @id @default(cuid())
+  nome     String   @unique // ex.: "Vestidos", "Calçados"
+  slug     String   @unique // ex.: "vestidos" (pra URL e filtro)
+  pecas    Peca[]
+  criadaEm DateTime @default(now())
+}
+
+model Peca {
+  id            String            @id @default(cuid())
+  titulo        String
+  slug          String            @unique // pra URL: /peca/jaqueta-jeans-levis-m
+  descricao     String?
+  precoCentavos Int // SEMPRE em centavos (R$ 89,90 = 8990). Evita erro de float.
+  tamanho       String? // "M", "38", "GG" — varia muito em brechó, por isso String
+  marca         String?
+  cor           String?
+  estado        EstadoConservacao @default(USADO)
+  medidas       String? // texto livre: "Busto 92cm, comprimento 70cm"
+
+  status       StatusPeca @default(DISPONIVEL)
+  reservadoAte DateTime? // até quando a reserva vale; null quando não reservada
+
+  categoria   Categoria? @relation(fields: [categoriaId], references: [id])
+  categoriaId String?
+
+  fotos       Foto[]
+  itensPedido ItemPedido[]
+
+  criadaEm     DateTime @default(now())
+  atualizadaEm DateTime @updatedAt
+
+  @@index([status])
+  @@index([categoriaId])
+}
+
+model Foto {
+  id     String @id @default(cuid())
+  url    String // URL no Supabase Storage / Cloudinary
+  ordem  Int    @default(0) // pra ordenar as fotos da peça (capa = 0)
+  peca   Peca   @relation(fields: [pecaId], references: [id], onDelete: Cascade)
+  pecaId String
+
+  @@index([pecaId])
+}
+
+model Pedido {
+  id String @id @default(cuid())
+
+  // Dados do cliente embutidos no pedido (MVP). Vira tabela Cliente quando
+  // houver contas de usuário.
+  clienteNome     String
+  clienteEmail    String
+  clienteTelefone String?
+
+  // Endereço de entrega
+  enderecoCep    String?
+  enderecoLinha  String? // rua, número, complemento
+  enderecoCidade String?
+  enderecoUf     String?
+
+  status        StatusPedido @default(PENDENTE)
+  totalCentavos Int // soma dos itens no momento da compra
+
+  // Mercado Pago
+  mpPreferenceId String? @unique // id da "preferência" (Checkout Pro)
+  mpPaymentId    String? @unique // id do pagamento confirmado (vem no webhook)
+
+  itens ItemPedido[]
+
+  criadoEm     DateTime  @default(now())
+  atualizadoEm DateTime  @updatedAt
+  expiraEm     DateTime? // espelha reservadoAte das peças; usado pra expirar pedido
+
+  @@index([status])
+}
+
+model ItemPedido {
+  id       String @id @default(cuid())
+  pedido   Pedido @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  pedidoId String
+  peca     Peca   @relation(fields: [pecaId], references: [id])
+  pecaId   String
+
+  // Snapshot do preço no momento da compra (o preço da peça pode mudar depois,
+  // mas o pedido tem que refletir o que o cliente pagou).
+  precoCentavos Int
+
+  // Uma peça única só pode estar uma vez em cada pedido.
+  @@unique([pedidoId, pecaId])
+  @@index([pecaId])
+}
