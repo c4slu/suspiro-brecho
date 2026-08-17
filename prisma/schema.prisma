@@ -1,7 +1,7 @@
 // Brechó — schema Prisma
 // Conceito central: cada PEÇA é única (estoque 1). Um PEDIDO pode ter VÁRIAS peças
 // (carrinho). Enquanto o pagamento não confirma, as peças do pedido ficam RESERVADAS
-// pra ninguém mais comprar. Pagamento via Mercado Pago (Checkout Pro) + webhook.
+// pra ninguém mais comprar. Pagamento via InfinitePay (link de pagamento) + webhook.
 
 generator client {
   provider = "prisma-client"
@@ -22,7 +22,7 @@ enum StatusPeca {
 
 enum StatusPedido {
   PENDENTE  // criado, aguardando pagamento
-  PAGO      // webhook do Mercado Pago confirmou
+  PAGO      // webhook da InfinitePay confirmou (ou confirmação manual)
   ENTREGUE  // produto fisicamente entregue ao cliente
   EXPIRADO  // reserva venceu sem pagamento -> peças voltam a DISPONIVEL
   CANCELADO // cancelado manualmente
@@ -100,9 +100,9 @@ model Pedido {
   status        StatusPedido @default(PENDENTE)
   totalCentavos Int // soma dos itens no momento da compra
 
-  // Mercado Pago
-  mpPreferenceId String? @unique // id da "preferência" (Checkout Pro)
-  mpPaymentId    String? @unique // id do pagamento confirmado (vem no webhook)
+  // InfinitePay
+  ipCheckoutUrl String? @unique // URL do link de pagamento criado na InfinitePay
+  ipTransacaoId String? @unique // NSU da transação confirmada (vem no webhook)
 
   itens ItemPedido[]
 

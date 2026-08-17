@@ -1,13 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import MercadoPago, { Preference } from "mercadopago";
-
-// Em dev pode usar MP_ACCESS_TOKEN_TEST (token TEST-...) para sandbox sem dinheiro real
-const token = process.env.MP_ACCESS_TOKEN_TEST ?? process.env.MP_ACCESS_TOKEN!;
-const mp = new MercadoPago({ accessToken: token });
-const preference = new Preference(mp);
 
 const RESERVA_MINUTOS = 15;
+const IP_API = "https://api.checkout.infinitepay.io/links";
 
 type ItemInput = { id: string; precoCentavos: number; titulo: string };
 type ClienteInput = {
@@ -30,7 +25,7 @@ export async function POST(req: NextRequest) {
   const idsRequeridos = itens.map((i: ItemInput) => i.id);
   const expiraEm = new Date(Date.now() + RESERVA_MINUTOS * 60 * 1000);
 
-  // APP_URL permite testar com ngrok em dev (ex: https://abc.ngrok.io)
+  // APP_URL permite testar com ngrok/cloudflare em dev (ex: https://abc.trycloudflare.com)
   const baseUrl =
     process.env.APP_URL ??
     `${req.headers.get("x-forwarded-proto") ?? "http"}://${req.headers.get("host") ?? "localhost:3000"}`;
@@ -73,42 +68,64 @@ export async function POST(req: NextRequest) {
 
     pedidoId = pedido.id;
 
-    // ── 2. Criar preferência no Mercado Pago ──────────────────────────────
-    let pref;
+    // ── 2. Criar link de pagamento na InfinitePay ──────────────────────────
+    let checkoutUrl: string;
     try {
-      pref = await preference.create({
-        body: {
-          external_reference: pedido.id,
-          items: itens.map((i: ItemInput) => ({
-            id: i.id,
-            title: `Suspiro Brechó — ${i.titulo}`,
-            description: "Peça única de brechó curado",
-            quantity: 1,
-            unit_price: i.precoCentavos / 100,
-            currency_id: "BRL",
-            category_id: "fashion",
-          })),
-          payer: {
-            name: cliente.nome.split(" ")[0],
-            surname: cliente.nome.split(" ").slice(1).join(" ") || " ",
-            email: cliente.email,
-          },
-          back_urls: {
-            success: `${baseUrl}/checkout/sucesso`,
-            failure: `${baseUrl}/checkout/erro`,
-            pending: `${baseUrl}/checkout/sucesso`, // pending vai pra sucesso com status=pending
-          },
-          // auto_return só funciona com URLs públicas (não localhost)
-          ...(baseUrl.startsWith("http://localhost") ? {} : { auto_return: "approved" as const }),
-          notification_url: `${baseUrl}/api/webhooks/mercadopago`,
-          statement_descriptor: "SUSPIRO BRECHO",
-          expires: true,
-          expiration_date_to: expiraEm.toISOString(),
+      const telefoneFormatado = cliente.telefone
+        ? `+55${cliente.telefone.replace(/\D/g, "")}`
+        : undefined;
+
+      // Remove o $ inicial caso o usuário tenha copiado com ele (ex: "$isabelly-do" → "isabelly-do")
+      const ipHandle = (process.env.INFINITEPAY_HANDLE ?? "").replace(/^\$/, "");
+
+      const ipPayload: Record<string, unknown> = {
+        handle: ipHandle,
+        order_nsu: pedido.id,
+        redirect_url: `${baseUrl}/checkout/sucesso`,
+        webhook_url: `${baseUrl}/api/webhooks/infinitepay`,
+        items: itens.map((i: ItemInput) => ({
+          quantity: 1,
+          price: i.precoCentavos,
+          description: `Suspiro Brechó — ${i.titulo}`,
+        })),
+        customer: {
+          name: cliente.nome,
+          email: cliente.email,
+          ...(telefoneFormatado ? { phone_number: telefoneFormatado } : {}),
         },
+      };
+
+      // Endereço é opcional — só envia se CEP preenchido e com campos válidos
+      // (evita 422 por campos vazios obrigatórios dentro de address)
+      if (cliente.cep && cliente.endereco) {
+        ipPayload.address = {
+          cep: cliente.cep.replace(/\D/g, ""),
+          street: cliente.endereco,
+        };
+      }
+
+      console.log("[checkout] InfinitePay payload:", JSON.stringify(ipPayload));
+
+      const ipRes = await fetch(IP_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(ipPayload),
       });
-    } catch (mpErr) {
+
+      const ipRawBody = await ipRes.text();
+      console.log("[checkout] InfinitePay resposta:", ipRes.status, ipRawBody);
+
+      if (!ipRes.ok) {
+        throw new Error(`InfinitePay ${ipRes.status}: ${ipRawBody}`);
+      }
+
+      const ipData = JSON.parse(ipRawBody);
+
+      checkoutUrl = ipData.url;
+      if (!checkoutUrl) throw new Error("InfinitePay não retornou URL de pagamento");
+    } catch (ipErr) {
       // ── Rollback: liberar reserva e cancelar pedido ──────────────────────
-      console.error("[checkout] Erro no Mercado Pago:", mpErr);
+      console.error("[checkout] Erro na InfinitePay:", ipErr);
       await prisma.$transaction([
         ...idsRequeridos.map((id) =>
           prisma.peca.update({
@@ -122,22 +139,20 @@ export async function POST(req: NextRequest) {
         }),
       ]);
 
-      const mpMessage =
-        mpErr instanceof Error ? mpErr.message : "Erro ao conectar com o Mercado Pago";
-      return Response.json({ error: `Pagamento indisponível no momento. Detalhe: ${mpMessage}` }, { status: 502 });
+      const msg = ipErr instanceof Error ? ipErr.message : "Erro ao conectar com o gateway de pagamento";
+      return Response.json({ error: `Pagamento indisponível no momento. Detalhe: ${msg}` }, { status: 502 });
     }
 
-    // ── 3. Salvar preference ID ────────────────────────────────────────────
+    // ── 3. Salvar URL do link de checkout ──────────────────────────────────
     await prisma.pedido.update({
       where: { id: pedido.id },
-      data: { mpPreferenceId: pref.id },
+      data: { ipCheckoutUrl: checkoutUrl },
     });
 
-    return Response.json({ initPoint: pref.init_point, pedidoId: pedido.id });
+    return Response.json({ initPoint: checkoutUrl, pedidoId: pedido.id });
 
   } catch (err) {
     console.error("[checkout] Erro geral:", err);
-    // Se a reserva foi criada mas algo mais falhou, tenta liberar
     if (pedidoId) {
       await prisma.$transaction([
         ...idsRequeridos.map((id) =>

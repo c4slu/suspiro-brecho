@@ -6,7 +6,10 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function makePrismaClient() {
-  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+  // DIRECT_URL bypassa o pooler (transaction mode) que bloqueia transações interativas.
+  // Para o volume de um brechó, conexão direta é suficiente.
+  const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL!;
+  const adapter = new PrismaPg({ connectionString });
   return new PrismaClient({ adapter });
 }
 

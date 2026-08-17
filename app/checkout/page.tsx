@@ -37,7 +37,7 @@ function RedirectingScreen() {
           Preparando seu pagamento…
         </p>
         <p className="text-sm" style={{ color: "#7A5C48" }}>
-          Você será redirecionada(o) para o Mercado Pago em instantes.
+          Você será redirecionada(o) para o pagamento em instantes.
         </p>
       </div>
     </main>
@@ -215,7 +215,7 @@ export default function CheckoutPage() {
               </div>
 
               <div className="p-3 rounded-xl text-sm" style={{ background: "#F4ECD8", color: "#7A5C48" }}>
-                🔒 Pagamento via Mercado Pago — Pix, cartão ou boleto
+                🔒 Pagamento via InfinitePay — Pix ou cartão
               </div>
 
               <button type="submit" disabled={loading}

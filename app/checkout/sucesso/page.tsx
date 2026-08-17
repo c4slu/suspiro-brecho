@@ -5,10 +5,10 @@ import { formatCentavos } from "@/lib/format";
 import { enviarEmailConfirmacao } from "@/lib/email";
 
 type SearchParams = Promise<{
-  collection_status?: string;
-  status?: string;
-  external_reference?: string;
-  payment_id?: string;
+  order_nsu?: string;       // pedidoId (enviado como order_nsu)
+  transaction_nsu?: string; // NSU da transação confirmada
+  capture_method?: string;  // "credit_card" | "pix"
+  slug?: string;            // código da fatura na InfinitePay
 }>;
 
 type PedidoDetalhe = {
@@ -56,14 +56,14 @@ async function getPedido(id: string): Promise<PedidoDetalhe | null> {
 
 export default async function SucessoPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
-  const status = sp.collection_status ?? sp.status ?? "approved";
-  const isPending = status === "pending" || status === "in_process";
-  const pedidoId = sp.external_reference;
+  // InfinitePay só redireciona após pagamento concluído; isPending apenas via Pix não confirmado
+  const isPending = sp.capture_method === "pix" && !sp.transaction_nsu;
+  const pedidoId = sp.order_nsu;
 
   const pedido = pedidoId ? await getPedido(pedidoId) : null;
   const temEndereco = pedido?.enderecoLinha && pedido?.enderecoCidade;
 
-  // Fallback: se MP aprovou mas webhook ainda não chegou (pedido ainda PENDENTE),
+  // Fallback: se InfinitePay redirecionou mas webhook ainda não chegou (pedido PENDENTE),
   // atualiza o pedido e dispara o e-mail. Peças ficam para o webhook corrigir;
   // se webhook nunca vier, admin usa "Confirmar pagamento" no /admin/vendas.
   const pedidoStatus = (pedido as unknown as { status: string } | null)?.status;
@@ -73,7 +73,7 @@ export default async function SucessoPage({ searchParams }: { searchParams: Sear
         where: { id: pedido.id },
         data: {
           status: "PAGO",
-          mpPaymentId: sp.payment_id ? `mp-${sp.payment_id}` : `redirect-${pedido.id}`,
+          ipTransacaoId: sp.transaction_nsu ? `ip-${sp.transaction_nsu}` : `redirect-${pedido.id}`,
         },
       });
       enviarEmailConfirmacao({

@@ -190,7 +190,7 @@ export async function marcarDisponivelAction(id: string) {
   revalidatePath("/produtos");
 }
 
-// ── Confirmar pagamento manual (quando webhook do MP não chegou) ──────────────
+// ── Confirmar pagamento manual (quando webhook da InfinitePay não chegou) ─────
 
 export async function confirmarPagamentoAction(pedidoId: string) {
   await assertAdmin();
@@ -216,7 +216,7 @@ export async function confirmarPagamentoAction(pedidoId: string) {
     ),
     prisma.pedido.update({
       where: { id: pedidoId },
-      data: { status: "PAGO", mpPaymentId: `manual-${pedidoId}` },
+      data: { status: "PAGO", ipTransacaoId: `manual-${pedidoId}` },
     }),
   ]);
 

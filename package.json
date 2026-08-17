@@ -20,7 +20,6 @@
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.107.0",
     "@types/pg": "^8.20.0",
-    "mercadopago": "^3.1.0",
     "next": "16.2.7",
     "pg": "^8.21.0",
     "prisma": "^7.8.0",

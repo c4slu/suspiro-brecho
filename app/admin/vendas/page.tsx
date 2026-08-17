@@ -53,7 +53,7 @@ async function getVendas(filtro: StatusFiltro) {
     totalCentavos: number;
     status: "PAGO" | "ENTREGUE";
     criadoEm: Date;
-    mpPaymentId: string | null;
+    ipTransacaoId: string | null;
     itens: Array<{
       id: string;
       precoCentavos: number;
@@ -162,7 +162,7 @@ export default async function VendasPage({ searchParams }: Props) {
             Nenhuma venda ainda
           </p>
           <p className="text-sm mt-2" style={{ color: "#B8A898" }}>
-            As vendas confirmadas pelo Mercado Pago aparecem aqui
+            As vendas confirmadas pela InfinitePay aparecem aqui
           </p>
         </div>
       ) : (

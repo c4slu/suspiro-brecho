@@ -1,6 +1,6 @@
 /**
- * Script manual para confirmar um pedido quando o webhook do MP não chegou.
- * Uso: npx tsx prisma/confirmar-pedido.ts <pedidoId> <mpPaymentId>
+ * Script manual para confirmar um pedido quando o webhook da InfinitePay não chegou.
+ * Uso: npx tsx prisma/confirmar-pedido.ts <pedidoId> [transacaoId]
  */
 import { config } from "dotenv";
 import { join } from "path";
@@ -15,9 +15,9 @@ const prisma = new PrismaClient({ adapter });
 
 async function main() {
   const pedidoId  = process.argv[2];
-  const paymentId = process.argv[3] ?? "manual";
+  const transacaoId = process.argv[3] ?? "manual";
 
-  if (!pedidoId) { console.error("Uso: npx tsx prisma/confirmar-pedido.ts <pedidoId> [mpPaymentId]"); process.exit(1); }
+  if (!pedidoId) { console.error("Uso: npx tsx prisma/confirmar-pedido.ts <pedidoId> [transacaoId]"); process.exit(1); }
 
   const pedido = await prisma.pedido.findUnique({
     where: { id: pedidoId },
@@ -40,7 +40,7 @@ async function main() {
     ...(pedido.itens as ItemComPeca[]).map((item) =>
       prisma.peca.update({ where: { id: item.pecaId }, data: { status: "VENDIDO", reservadoAte: null } })
     ),
-    prisma.pedido.update({ where: { id: pedidoId }, data: { status: "PAGO", mpPaymentId: paymentId } }),
+    prisma.pedido.update({ where: { id: pedidoId }, data: { status: "PAGO", ipTransacaoId: transacaoId } }),
   ]);
 
   console.log("✓ Pedido marcado como PAGO e peças como VENDIDO");
