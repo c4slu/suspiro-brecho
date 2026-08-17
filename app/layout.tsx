@@ -19,13 +19,26 @@ const jost = Jost({
 
 export const metadata: Metadata = {
   title: "Suspiro Brechó | Peças únicas com alma",
-  description: "Brechó curado com peças únicas de moda de segunda mão. Cada peça conta uma história.",
+  description:
+    "Brechó curado com peças únicas de moda de segunda mão. Cada peça conta uma história.",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="pt-BR" className={`${cormorant.variable} ${jost.variable} h-full`} suppressHydrationWarning>
-      <body className="min-h-full flex flex-col antialiased" style={{ fontFamily: "var(--font-jost)" }} suppressHydrationWarning>
+    <html
+      lang="pt-BR"
+      className={`${cormorant.variable} ${jost.variable} h-full`}
+      suppressHydrationWarning
+    >
+      <body
+        className="min-h-full flex flex-col antialiased"
+        style={{ fontFamily: "var(--font-jost)" }}
+        suppressHydrationWarning
+      >
         <CartProvider>
           <Sparkles />
           {children}

@@ -75,8 +75,9 @@ export async function POST(req: NextRequest) {
         ? `+55${cliente.telefone.replace(/\D/g, "")}`
         : undefined;
 
-      // Remove o $ inicial caso o usuário tenha copiado com ele (ex: "$isabelly-do" → "isabelly-do")
       const ipHandle = (process.env.INFINITEPAY_HANDLE ?? "").replace(/^\$/, "");
+      console.log("[checkout] INFINITEPAY_HANDLE raw:", JSON.stringify(process.env.INFINITEPAY_HANDLE));
+      console.log("[checkout] handle enviado:", JSON.stringify(ipHandle));
 
       const ipPayload: Record<string, unknown> = {
         handle: ipHandle,
